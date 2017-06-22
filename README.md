@@ -45,34 +45,19 @@ The following properties can be configured:
 			</td>
 		</tr>
 		<tr>
-			<td><code>powerSaving</code></td>
-			<td>Should the monitor be turned off if no user is present? (via HDMI or relay)<br>
-				<br><b>Possible values:</b> <code>boolean</code>
-				<br><b>Default value:</b> <code>true</code>
+			<td><code>screensaverDelay</code></td>
+			<td>How long, in seconds, before the screensaver appears after no motion detection.<br>
+				<br><b>Possible values:</b> <code>integer</code>
+				<br><b>Default value:</b> <code>60</code>
 			</td>
 		</tr>
-		<tr>
-			<td><code>powerSavingDelay</code></td>
-			<td>Additional software side delay (in seconds) before the monitor will be turned off.<br>
-				<br><b>Possible values:</b> <code>int</code>
-				<br><b>Default value:</b> <code>0</code>
-			</td>
-		</tr>
-		<tr>
-			<td><code>relayPIN</code></td>
-			<td>If you want to use a relay to turn of the mirror provide the pin here. If no pin is provided HDMI is turned off instead.<br>
-				<br><b>Possible values:</b> <code>int</code>
-				<br><b>Default value:</b> <code>none</code>
-				<br><b>Note:</b> Please use BCM-numbering.
-			</td>
-		</tr>
-		<tr>
-			<td><code>relayOnState</code></td>
-			<td>GPIO-state your relay is turned on.<br>
-				<br><b>Possible values:</b> <code>int</code>
-				<br><b>Default value:</b> <code>1</code>
-			</td>
-		</tr>
+    <tr>
+      <td><code>powerOffDelay</code></td>
+      <td>How long, in seconds, before the screen goes into standby after no motion detection.<br>
+        <br><b>Possible values:</b> <code>integer</code>
+        <br><b>Default value:</b> <code>300</code>
+      </td>
+    </tr>
 	</tbody>
 </table>
 
@@ -80,7 +65,7 @@ The following properties can be configured:
 This module broadcasts a `USER_PRESENCE` notification with the payload beeing `true` or `false` you can use it to pause or disable your module.
 
 ## Dependencies
-- [wiring-pi](https://www.npmjs.com/package/wiring-pi) (installed via `npm install`)
+- [onoff](https://www.npmjs.com/package/onoff) (installed via `npm install`)
 
 The MIT License (MIT)
 =====================

@@ -1,85 +1,183 @@
-'use strict';
-
 /* Magic Mirror
  * Module: MMM-PIR-Sensor
  *
- * By Paul-Vincent Roll http://paulvincentroll.com
- * MIT Licensed.
+ * by Jeff Clarke
+ * https://github.com/jclarke0000/MMM-PIR-Sensor
+ *
+ * Forked version of Paul-Vincent Roll's
+ * original at http://paulvincentroll.com
  */
 
-const NodeHelper = require('node_helper');
-const Gpio = require('onoff').Gpio;
-const exec = require('child_process').exec;
+"use strict";
+
+const NodeHelper = require("node_helper");
+const Gpio = require("onoff").Gpio;
+const exec = require("child_process").exec;
+
+const screenStates = {
+  OFF : 0,
+  SCREENSAVER : 1,
+  ON : 2
+};
+
+var screenState = screenStates.ON;
+var screenSaverTimer;
+var powerOffTimer;
 
 module.exports = NodeHelper.create({
+
   start: function () {
     this.started = false;
   },
 
-  activateMonitor: function () {
-    if (this.config.relayPIN != false) {
-      this.relay.writeSync(this.config.relayOnState);
+  screenOn: function(force) {
+
+    /*
+      when the "force" flag is set, then CEC "ON" command
+      will be sent regardless of current screen state.
+    */
+
+    //cancel screensaver
+    this.screenSaverOff();
+
+    if (screenState === screenStates.OFF || force === true) {
+      //wake from standby
+      console.log("powering on TV");
+      exec("/home/pi/scripts/tvon.sh");
     }
-    else if (this.config.relayPIN == false){
-      // Check if hdmi output is already on
-      exec("/opt/vc/bin/tvservice -s").stdout.on('data', function(data) {
-        if (data.indexOf("0x120002") !== -1)
-          exec("/opt/vc/bin/tvservice --preferred && chvt 6 && chvt 7", null);
-      });
+
+    screenState = screenStates.ON;
+
+    //restart timers
+    this.resetTimers();
+
+    this.broadcastScreenState();
+  },
+
+  screenOff: function () {
+    if (screenState !== screenStates.OFF) {
+      //cancel timer
+      clearTimeout(powerOffTimer);
+
+      console.log("powering off TV");
+      powerOffTimer = null;
+
+      //put screen into standby
+      exec("/home/pi/scripts/tvoff.sh");
+
+      screenState = screenStates.OFF;
+      this.broadcastScreenState();
     }
   },
 
-  deactivateMonitor: function () {
-    if (this.config.relayPIN != false) {
-      this.relay.writeSync(this.config.relayOffState);
-    }
-    else if (this.config.relayPIN == false){
-      exec("/opt/vc/bin/tvservice -o", null);
-    }
+  screenSaverOn: function() {
+    clearTimeout(screenSaverTimer);
+    screenSaverTimer = null;
+
+    //activate screensaver
+    exec("xscreensaver-command -activate");
+
+    screenState = screenStates.SCREENSAVER;
+    this.broadcastScreenState();
+
+  },
+
+  screenSaverOff: function() {
+    clearTimeout(screenSaverTimer);
+    screenSaverTimer = null;
+
+    //cancel screensaver
+    exec("xscreensaver-command -deactivate");
+  },
+
+
+  resetTimers: function() {
+
+    console.log("resetting timers");
+
+    var self = this;
+
+    //reset screensaver timer
+    clearTimeout(screenSaverTimer);
+    screenSaverTimer = setTimeout(function() {
+      console.log("Screensaver timeout");
+      self.screenSaverOn();
+    }, this.config.screenSaverDelay * 1000);
+
+    //reset power off timer
+    clearTimeout(powerOffTimer);
+    powerOffTimer = setTimeout(function() {
+      console.log("Poweroff timeout");
+      self.screenOff();
+    }, this.config.powerOffDelay * 1000);
+
+  },
+
+  broadcastScreenState: function() {
+    this.sendSocketNotification("SCREEN_STATE_CHANGE", screenState);
   },
 
   // Subclass socketNotificationReceived received.
   socketNotificationReceived: function(notification, payload) {
-    if (notification === 'CONFIG' && this.started == false) {
-      const self = this;
+    if (notification === "CONFIG") {
+
       this.config = payload;
+      console.log("==> Screensaver timeout: " + this.config.screenSaverDelay);
+      console.log("==> Poweroff timeout: " + this.config.powerOffDelay);
 
-      //Setup pins
-      this.pir = new Gpio(this.config.sensorPIN, 'in', 'both');
-      // exec("echo '" + this.config.sensorPIN.toString() + "' > /sys/class/gpio/export", null);
-      // exec("echo 'in' > /sys/class/gpio/gpio" + this.config.sensorPIN.toString() + "/direction", null);
+      if (!this.started) {
 
-      if (this.config.relayPIN) {
-        this.relay = new Gpio(this.config.relayPIN, 'out');
-        this.relay.writeSync(this.config.relayOnState);
-        exec("/opt/vc/bin/tvservice --preferred && chvt 6 && chvt 7", null);
+        const self = this;
+
+        //Setup pins
+        console.log("Enabling PIR Sensor on pin " + this.config.sensorPIN);
+        this.pir = new Gpio(this.config.sensorPIN, "in", "both");
+
+        //Detected movement
+        this.pir.watch(function(err, value) {
+          if (err) {
+            throw err;
+          } else if (value === 1) {
+            console.log("Motion detected");
+            self.screenOn();
+          }
+        });
+
+        //clean up on MM termination
+        process.on("SIGINT", function () {
+          console.log("[MMM-PIR-Sensor] cleaning up");
+          self.pir.unwatchAll();
+          self.pir.unexport();
+          clearTimeout(screenSaverTimer);
+          clearTimeout(powerOffTimer);
+          screenSaverTimer = null;
+          powerOffTimer = null;
+          process.exit();
+        });
+
+        this.started = true;        
       }
 
-      //Detected movement
-      this.pir.watch(function(err, value) {
-        if (value == 1) {
-          self.sendSocketNotification("USER_PRESENCE", true);
-          if (self.config.powerSaving){
-            clearTimeout(self.deactivateMonitorTimeout);
-            self.activateMonitor();
-          }
-        }
-        else if (value == 0) {
-          self.sendSocketNotification("USER_PRESENCE", false);
-          if (!self.config.powerSaving){
-            return;
-          }
+      //force screen on to start at a known state
+      this.screenOn(true);
 
-          self.deactivateMonitorTimeout = setTimeout(function() {
-            self.deactivateMonitor();
-          }, self.config.powerSavingDelay * 1000);
-        }
-      });
+    } else if (notification === "SET_SCREEN_STATE" && this.started) {
 
-      this.started = true;
+      switch (payload) {
+        case "OFF":
+          this.screenOff();
+          break;
+        case "SCREENSAVER":
+          this.screenSaverOn();
+          break;
+        case "ON":
+          this.screenOn();
+          break;
+        default:
+          console.log("Unknown screen state: " + payload);
+          break;
+      } 
 
-    } else if (notification === 'SCREEN_WAKEUP') {
-      this.activateMonitor();
     }
   }
 

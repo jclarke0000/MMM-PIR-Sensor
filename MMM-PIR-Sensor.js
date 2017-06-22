@@ -3,43 +3,54 @@
 /* Magic Mirror
  * Module: MMM-PIR-Sensor
  *
- * By Paul-Vincent Roll http://paulvincentroll.com
+ * by Jeff Clarke
+ * https://github.com/jclarke0000/MMM-PIR-Sensor
+ *
+ * Forked version of Paul-Vincent Roll's
+ * original at http://paulvincentroll.com
+ *
  * MIT Licensed.
  */
 
-Module.register('MMM-PIR-Sensor',{
+"use strict";
+
+Module.register("MMM-PIR-Sensor",{
 
 	requiresVersion: "2.1.0",
 
 	defaults: {
-		sensorPIN: 22,
-		relayPIN: false,
-		powerSaving: true,
-		relayOnState: 1,
-		powerSavingDelay: 0
+		sensorPIN: 17,
+    screenSaverDelay: 60, //1 minute
+    powerOffDelay: 300    //5 minutes
 	},
 
-	// Override socket notification handler.
+  screenStates: ["OFF","SCREENSAVER","ON"],
+
 	socketNotificationReceived: function(notification, payload) {
-		if (notification === "USER_PRESENCE"){
-			this.sendNotification(notification, payload)
+		if (notification === "SCREEN_STATE_CHANGE") {
+      /*
+        Broadcasts change of screen state to all running modules.
+        Translates numeric value to string for consumption by 
+        other modules.
+      */
+			this.sendNotification(notification, this.screenStates[payload]);
 		}
 	},
 
 	notificationReceived: function(notification, payload) {
-		if (notification === "SCREEN_WAKEUP"){
-			this.sendNotification(notification, payload)
+		if (notification === "SET_SCREEN_STATE") {
+      /* 
+        Reception of a request from another module to explicitly
+        set the screen state to one of the following:
+        "OFF", "SCREENSAVER", "ON"
+      */
+			this.sendSocketNotification(notification, payload);
 		}
 	},
 
 	start: function() {
-		if (this.config.relayOnState == 1){
-			this.config.relayOffState = 0
-		}
-		else if (this.config.relayOnState == 0){
-			this.config.relayOffState = 1
-		}
-		this.sendSocketNotification('CONFIG', this.config);
-		Log.info('Starting module: ' + this.name);
+		Log.info("Starting module: " + this.name);
+    this.sendSocketNotification("CONFIG", this.config);
 	}
+
 });

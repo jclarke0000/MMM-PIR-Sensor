@@ -1,25 +1,29 @@
 {
-  "name": "Magic-Mirror-Module-PIR-Sensor",
-  "version": "1.1.0",
-  "description": "PIR motion sensor module for the Magic Mirror.",
+  "name": "mmmpirsensor",
+  "version": "1.0.0",
+  "description": "Magic Mirror Module for screen power management based on motion detection.",
+  "main": "MMM-PIR-Sensor.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/paviro/MMM-PIR-Sensor"
+    "url": "git+https://github.com/jclarke0000/MMM-PIR-Sensor.git"
   },
   "keywords": [
-    "magic mirror",
-    "smart mirror",
-    "PIR-Sensor",
+    "Magic",
+    "Mirror",
+    "Smart",
+    "Mirror",
     "module",
-    "motion"
+    "motion",
+    "detection",
+    "pir",
+    "sensor"
   ],
-  "author": "Paul-Vincent Roll",
-  "contributors": "https://github.com/paviro/MMM-PIR-Sensor/graphs/contributors",
+  "author": "Jeff Clarke",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/paviro/MMM-PIR-Sensor/issues"
+    "url": "https://github.com/jclarke0000/MMM-PIR-Sensor/issues"
   },
-  "homepage": "https://github.com/paviro/MMM-PIR-Sensor#readme",
+  "homepage": "https://github.com/jclarke0000/MMM-PIR-Sensor#readme",
   "scripts": {
     "postinstall": "node_modules/.bin/electron-rebuild -e ../../node_modules/electron"
   },
